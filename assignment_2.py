@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.sparse import dok_matrix,csr_matrix
+from scipy.sparse import dok_matrix
 import time
 from solver import solve_cgs
 import matplotlib.pyplot as plt
@@ -14,8 +14,8 @@ phi_xL = 100
 phi_ext = 300
 L_x = 1
 L_y = 1
-nx = 200
-ny = 200
+nx = 3
+ny = 3
 delta_x = L_x/nx
 delta_y = L_y/ny
 
@@ -85,10 +85,10 @@ for j in np.arange(1,nx-1):
 i = 0
 s_p_upper = -(rho/(h_f*delta_y/2 - rho))
 s_u_upper = h_f*(phi_ext-(((delta_y/2)*(h_f-phi_ext))/(h_f*delta_y/2 - rho)))
-a_p_upper = a_w+a_e+a_s-s_u_upper
+a_p_upper = a_w+a_e+a_s-s_p_upper
 for j in np.arange(1,nx-1):
     k = (i * nx + j)
-    A[k, k] = a_p
+    A[k, k] = a_p_upper
     A[k, k + 1] = -a_e
     A[k, k - 1] = -a_w
     A[k, k + nx] = -a_s
@@ -122,7 +122,6 @@ s_u_ll = s_u_lower+s_u_left
 a_p_ll = a_e+a_n-s_p_ll
 A[k, k] = a_p_ll
 A[k, k + 1] = -a_e
-A[k, k - 1] = -a_w
 A[k, k - nx] = -a_n
 b[k] = s_u_ll
 
@@ -142,6 +141,9 @@ print(phi)
 print(err)
 print(t_solve)
 print(t1-time.time())
+
+A_mat = A.toarray()
+b_vec = b.toarray()
 
 #visualize
 M_show_list = []
