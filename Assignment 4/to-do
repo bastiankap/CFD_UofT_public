@@ -1,0 +1,5 @@
+- correction convection terms
+- pressure correction a coefficients
+- see where dx or dy might be missing
+
+

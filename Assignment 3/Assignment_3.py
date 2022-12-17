@@ -4,14 +4,9 @@ from scipy.sparse import dok_matrix
 import matplotlib.pyplot as plt
 from scipy import interpolate
 from math import log
+import time
 
-
-def generate_grid(nx=10, ny=10, L_x=1, L_y=1):
-    """
-    should take number of x and y elements as input,
-    should returend d_x, d_y; x,y nodal positions (1d array)
-    :return:
-    """
+def generate_grid(nx=10, ny=10, L_x=1, L_y=1):  # generate nodal positions and cell width/height
     dx = L_x / nx
     dy = L_y / ny
     x_node = [dx / 2]
@@ -26,12 +21,12 @@ def generate_grid(nx=10, ny=10, L_x=1, L_y=1):
     return dx, dy, x_node, y_node
 
 
-def generate_velocities(case='constant', x=0, y=0, dx=0.1, dy=0.1, L_x=1, L_y=1):
+def generate_velocities(case='constant', x=0, y=0, dx=0.1, dy=0.1, L_x=1, L_y=1):  # generate velocities at each face
     if case == 'constant':
-        u_e = 2
-        u_w = 2
-        u_n = 2
-        u_s = 2
+        u_e = -2000
+        u_w = -2000
+        u_n = -2000
+        u_s = -2000
 
     elif case == 'circular':
         x_w = (x - dx / 2)
@@ -58,12 +53,12 @@ def generate_velocities(case='constant', x=0, y=0, dx=0.1, dy=0.1, L_x=1, L_y=1)
         u_n = r_n * np.cos(theta_n)
         u_s = r_s * np.cos(theta_s)
     else:
-        raise Exception('chose "constant" or "circular"')
+        raise Exception('chose "constant" or "circular"')  # raise error if wrong input is chosen
 
     return u_e, u_w, u_n, u_s
 
 
-def generate_DF(u_e=1, u_w=1, u_n=1, u_s=1, dx=1, dy=1, gamma=5, rho=1):
+def generate_DF(u_e=1, u_w=1, u_n=1, u_s=1, dx=1, dy=1, gamma=5, rho=1):  # generate D and F values for each face
     D_e = gamma / dx
     D_w = gamma / dx
     D_n = gamma / dy
@@ -76,9 +71,13 @@ def generate_DF(u_e=1, u_w=1, u_n=1, u_s=1, dx=1, dy=1, gamma=5, rho=1):
     return D_e, D_w, D_n, D_s, F_e, F_w, F_n, F_s
 
 
-def generate_a_coefficients(D_e=1, D_w=1, D_n=1, D_s=1, F_e=1, F_w=1, F_n=1, F_s=1, scheme='central'):
+def generate_a_coefficients(D_e=1, D_w=1, D_n=1, D_s=1, F_e=1, F_w=1, F_n=1, F_s=1, scheme='central'):  # generate
+    # a-coefficients
     if scheme == 'central':
         # print('using central differencing')
+        Pe = max(abs(F_e / D_e), abs(F_w / D_w), abs(F_n / D_n), abs(F_s / D_s))
+        if Pe >= 2:  # check for peclet number
+            raise Exception('Pe > 2! use upwind instead')
 
         a_e = (D_e - F_e / 2)
         a_w = (D_w + F_w / 2)
@@ -100,7 +99,7 @@ def generate_a_coefficients(D_e=1, D_w=1, D_n=1, D_s=1, F_e=1, F_w=1, F_n=1, F_s
 
 
 def generate_source_terms(i, j, D_e=1, D_w=1, D_n=1, D_s=1, F_e=1, F_w=1, F_n=1, F_s=1, nx=10, ny=10, scheme='central'):
-    """generate source terms for individual nodes, should get i,j values to check for boundary, return boundary"""
+    # generate source terms if node is located at a boundary
     s_u = 0
     s_p = 0
     phi_b_n = 100
@@ -109,7 +108,7 @@ def generate_source_terms(i, j, D_e=1, D_w=1, D_n=1, D_s=1, F_e=1, F_w=1, F_n=1,
     phi_b_s = 0
 
     if i == 0:
-        # print('north boundary')
+
         if scheme == 'central':
             # print('central')
             s_u = s_u + (2 * D_n - F_n) * phi_b_n
@@ -120,7 +119,7 @@ def generate_source_terms(i, j, D_e=1, D_w=1, D_n=1, D_s=1, F_e=1, F_w=1, F_n=1,
             s_p = s_p + (-(2 * D_n + max(0, -F_n)))
 
     if i == ny - 1:
-        # print('south boundary')
+
         if scheme == 'central':
             # print('central')
             s_u = s_u + (2 * D_s + F_s) * phi_b_s
@@ -131,7 +130,7 @@ def generate_source_terms(i, j, D_e=1, D_w=1, D_n=1, D_s=1, F_e=1, F_w=1, F_n=1,
             s_p = s_p + (-(2 * D_s + max(F_s, 0)))
 
     if j == 0:
-        # print('west boundary')
+
         if scheme == 'central':
             # print('central')
             s_u = s_u + (2 * D_w + F_w) * phi_b_w
@@ -142,7 +141,7 @@ def generate_source_terms(i, j, D_e=1, D_w=1, D_n=1, D_s=1, F_e=1, F_w=1, F_n=1,
             s_p = s_p + (-(2 * D_w + max(F_w, 0)))
 
     if j == nx - 1:
-        # print('east boundary')
+
         if scheme == 'central':
             # print('central')
             s_u = s_u + (2 * D_e - F_e) * phi_b_e
@@ -156,6 +155,7 @@ def generate_source_terms(i, j, D_e=1, D_w=1, D_n=1, D_s=1, F_e=1, F_w=1, F_n=1,
 
 
 def delete_a_coefficients(i, j, a_e, a_w, a_n, a_s, nx=10, ny=10):
+    # delete a-coefficients of faces that lay on a boundary
     a_e = a_e
     a_w = a_w
     a_s = a_s
@@ -172,7 +172,7 @@ def delete_a_coefficients(i, j, a_e, a_w, a_n, a_s, nx=10, ny=10):
 
 
 def build(nx=10, ny=10, x_n=np.zeros(500), y_n=np.zeros(500), dx=1, dy=1, scheme='central', case='constant', gamma=5,
-          rho=1):
+          rho=1):  # build A matrix and b vector
     A = dok_matrix((nx * ny, nx * ny))
     b = dok_matrix((nx * ny, 1))
 
@@ -237,7 +237,7 @@ def run_analysis(nx=10, ny=10, scheme='central', case='constant', L_x=1, L_y=1, 
 
 
 # Question 2:
-def question_2():
+def question_2():  # showcase false diffusion introduced by upwind
     plt.rcParams['xtick.top'] = plt.rcParams['xtick.labeltop'] = False
     plt.rcParams['xtick.bottom'] = plt.rcParams['xtick.labelbottom'] = True
     phi_10, _, _, x_10, y_10 = run_analysis(nx=10, ny=10, scheme='upwind', case='constant', L_x=1, L_y=1, gamma=0,
@@ -262,8 +262,15 @@ def question_2():
     plt.show()
 
 
-# Question 4 calculate Order of convergence
-def question_4(plot=True, buffer=0, gamma=5):
+# Question 4:
+def question_4(plot=True, buffer=0, gamma=5):  # calculate order of convergence
+    """
+    this function calculates the order of convergence using upwind and central differencing
+    :param plot: bool that activates/deactivates plotting for each run
+    :param buffer: layers to the boundary that are left out for error calculation
+    :param gamma: diffusive parameter
+    :return:
+    """
     O = {}
     for scheme in ['upwind', 'central']:
         print(f'Calculating Order of Convergence for {scheme}')
@@ -294,8 +301,10 @@ def question_4(plot=True, buffer=0, gamma=5):
     print(f'Central O:{O["central"]}')
 
 
-question_2()
-question_4(plot=False, buffer=0, gamma=5)
-run_analysis(nx=320, ny=320, scheme='upwind', case='constant', L_x=1, L_y=1, gamma=0, rho=1, plot=True)
-run_analysis(nx=320, ny=320, scheme='upwind', case='constant', L_x=1, L_y=1, gamma=5, rho=1, plot=True)
+#question_2()
+#question_4(plot=False, buffer=0, gamma=5)
+# run_analysis(nx=80, ny=80, scheme='upwind', case='circular', L_x=1, L_y=1,gamma=5, rho=1, plot=True)
+# phi_array, err, time, x_node, y_node = run_analysis(nx=320, ny=320, scheme='upwind', case='circular', L_x=1, L_y=1,
+                                                   # gamma=5, rho=1, plot=True)
+# run_analysis(nx=320, ny=320, scheme='upwind', case='constant', L_x=1, L_y=1, gamma=5, rho=1, plot=True)
 run_analysis(nx=320, ny=320, scheme='central', case='constant', L_x=1, L_y=1, gamma=5, rho=1, plot=True)

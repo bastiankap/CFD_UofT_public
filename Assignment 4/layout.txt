@@ -1,0 +1,26 @@
+
+
+main:
+- initialize
+- generate_FD
+- solve_uv
+- generate_FD
+- calculate_pressure_correction
+- correct_puv
+- extrapolate
+
+initial condition
+- gen_ini()
+momentum
+- gen_FD
+- solve_uv()
+
+pressure correction
+- gen_pre_cor()
+- correct pressure
+
+velocity correction
+- gen_vel_cor
+
+extrapolate
+- ext_pressure
