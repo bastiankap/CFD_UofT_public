@@ -9,10 +9,10 @@ from velocity_correction import correct_velocity
 from extrapolate_pressure import extrapolate
 # initialize problem
 t_start = time.time()
-nx = 160
+nx = 20
 ny = nx
 Re = 100
-ext_case = 'constant gradient'
+ext_case = 'zero gradient'
 n_consecutive = 0
 
 dx, dy, x_nodes, y_nodes = gen_mesh(nx, ny)
@@ -33,7 +33,7 @@ while p_prime_max > 1e-4:
 
     print(f'iteration {i+1}')
     # solve x and y momentum
-    u_star, x_ap_new, _, _, _, _ = solve_momentum(u=u, v=v, p=p, x_ap=x_ap, y_ap=y_ap, Re=Re, nx=nx,
+    u_star, x_ap, _, _, _, _ = solve_momentum(u=u, v=v, p=p, x_ap=x_ap, y_ap=y_ap, Re=Re, nx=nx,
                                                                      ny=ny, direction='x', alpha_uv_solver=alpha_uv_solver, assem=True, alpha_f=alpha_F)
 
     v_star, y_ap, _, _, _, _ = solve_momentum(u=u, v=v, p=p, x_ap=x_ap, y_ap=y_ap, Re=Re, nx=nx,
@@ -44,12 +44,15 @@ while p_prime_max > 1e-4:
     # solve pressure correction
     p_prime = solve_p_prime(u=u_star, v=v_star, p=p, Fe_array=Fe_array, Fw_array=Fw_array, Fn_array=Fn_array, Fs_array=Fs_array,
                             x_ap=x_ap, y_ap=y_ap, Re=Re, p_prime_old=p_prime, nx=nx, ny=ny, dx=dx, dy= dy, alpha_uv_solver=alpha_uv_solver)
-    x_ap = x_ap_new
+
 
     p_prime = extrapolate(array=p_prime, nx=nx, ny=ny, case=ext_case)
     # correct pressure
     p[1:ny + 1, 1:nx + 1] = p[1:ny + 1, 1:nx + 1] + alpha_p_prime * p_prime[1:ny + 1, 1:nx + 1]
     p = extrapolate(array=p, nx=nx, ny=ny, case = ext_case)
+    x_ap = extrapolate(array=x_ap, nx=nx, ny=ny, case = ext_case)
+    y_ap = extrapolate(array=y_ap, nx=nx, ny=ny, case = ext_case)
+
     # correct velocities
     u_cor, v_cor = correct_velocity(alpha_u_prime = alpha_u_prime, alpha_v_prime = alpha_v_prime, u =u_star, v=v_star, p_prime=p_prime, x_ap=x_ap, y_ap=y_ap, dx=dx, dy=dy, nx=nx, ny=ny)
 
